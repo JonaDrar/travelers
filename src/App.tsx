@@ -11,31 +11,41 @@ function App() {
   const [travelers, setTravelers] = useState([]);
   const [travelerName, setTravelerName] = useState('');
   const [expenseList, setExpenseList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [operationLoading, setOperationLoading] = useState(false);
 
   // Cargar viajeros y gastos desde Firebase al inicio
   useEffect(() => {
-    const fetchTravelers = async () => {
-      const travelerCollection = collection(db, 'travelers');
-      const travelerSnapshot = await getDocs(travelerCollection);
-      const travelersData = travelerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTravelers(travelersData);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const travelerCollection = collection(db, 'travelers');
+        const travelerSnapshot = await getDocs(travelerCollection);
+        const travelersData = travelerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setTravelers(travelersData);
+
+        const expenseCollection = collection(db, 'expenses');
+        const expenseSnapshot = await getDocs(expenseCollection);
+        const expensesData = expenseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setExpenseList(expensesData);
+      } catch (error) {
+        toast.error('Error al cargar datos de Firebase');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const fetchExpenses = async () => {
-      const expenseCollection = collection(db, 'expenses');
-      const expenseSnapshot = await getDocs(expenseCollection);
-      const expensesData = expenseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setExpenseList(expensesData);
-    };
-
-    fetchTravelers();
-    fetchExpenses();
+    fetchData();
   }, []);
 
   // Añadir un nuevo viajero y guardarlo en Firebase
   const addTraveler = async () => {
-    if (travelerName.trim() === '') return;
+    if (travelerName.trim() === '') {
+      toast.error('El nombre del viajero no puede estar vacío');
+      return;
+    }
 
+    setOperationLoading(true);
     const newTraveler = { name: travelerName };
     try {
       const docRef = await addDoc(collection(db, 'travelers'), newTraveler);
@@ -44,30 +54,31 @@ function App() {
       toast.success(`Viajero ${travelerName} añadido`);
     } catch (error) {
       toast.error(`Error al añadir viajero: ${error.message}`);
+    } finally {
+      setOperationLoading(false);
     }
   };
 
   // Eliminar un viajero y sus gastos asociados
   const removeTraveler = async (travelerId) => {
+    setOperationLoading(true);
     try {
-      // Eliminar el viajero de la colección 'travelers'
       await deleteDoc(doc(db, 'travelers', travelerId));
-      
-      // Consultar y eliminar los gastos asociados al viajero en la colección 'expenses'
+
       const expenseQuery = query(collection(db, 'expenses'), where("travelerId", "==", travelerId));
       const expenseSnapshot = await getDocs(expenseQuery);
       const batchDeletes = expenseSnapshot.docs.map(expenseDoc => deleteDoc(doc(db, 'expenses', expenseDoc.id)));
 
-      // Esperar a que se completen todas las eliminaciones de gastos
       await Promise.all(batchDeletes);
 
-      // Actualizar el estado local
       setTravelers(travelers.filter((traveler) => traveler.id !== travelerId));
       setExpenseList(expenseList.filter((expense) => expense.travelerId !== travelerId));
 
       toast.info('Viajero y gastos asociados eliminados');
     } catch (error) {
       toast.error(`Error al eliminar viajero: ${error.message}`);
+    } finally {
+      setOperationLoading(false);
     }
   };
 
@@ -75,12 +86,18 @@ function App() {
   const handleExpenseChange = (e) => {
     setExpenses({
       ...expenses,
-      [e.target.name]: e.target.value,
+      [e.target.name]: e.target.name === "amount" ? parseFloat(e.target.value) : e.target.value,
     });
   };
 
   // Guardar el gasto en Firebase
   const saveToFirebase = async (travelerId) => {
+    if (expenses.type.trim() === '' || expenses.amount <= 0) {
+      toast.error('El tipo de gasto no puede estar vacío y el monto debe ser mayor a 0');
+      return;
+    }
+
+    setOperationLoading(true);
     const traveler = travelers.find(t => t.id === travelerId);
     const expenseData = {
       ...expenses,
@@ -95,8 +112,18 @@ function App() {
       toast.success('Gasto guardado en Firebase');
     } catch (error) {
       toast.error(`Error al guardar en Firebase: ${error.message}`);
+    } finally {
+      setOperationLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <h2 className="text-2xl font-semibold">Cargando datos...</h2>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
@@ -112,10 +139,12 @@ function App() {
             onChange={(e) => setTravelerName(e.target.value)}
             placeholder="Nombre del viajero"
             className="w-full p-2 border rounded mr-2"
+            disabled={operationLoading}
           />
           <button
             onClick={addTraveler}
             className="bg-blue-500 text-white px-4 py-2 rounded"
+            disabled={operationLoading}
           >
             Añadir
           </button>
@@ -127,6 +156,7 @@ function App() {
               <button
                 onClick={() => removeTraveler(traveler.id)}
                 className="text-red-500"
+                disabled={operationLoading}
               >
                 Eliminar
               </button>
@@ -146,14 +176,16 @@ function App() {
           onChange={handleExpenseChange}
           className="w-full mb-4 p-2 border rounded"
           placeholder="Alojamiento, comida, transporte, etc."
+          disabled={operationLoading}
         />
         <label className="block mb-2">Monto:</label>
         <input
           type="number"
           name="amount"
           value={expenses.amount}
-          onChange={(e) => setExpenses({ ...expenses, amount: parseFloat(e.target.value) })}
+          onChange={handleExpenseChange}
           className="w-full mb-4 p-2 border rounded"
+          disabled={operationLoading}
         />
         <h3 className="text-lg font-semibold mb-2">Seleccione un viajero:</h3>
         <div>
@@ -162,6 +194,7 @@ function App() {
               key={traveler.id}
               onClick={() => saveToFirebase(traveler.id)}
               className="bg-green-500 text-white px-4 py-2 m-1 rounded"
+              disabled={operationLoading}
             >
               {traveler.name}
             </button>
