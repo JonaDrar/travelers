@@ -1,4 +1,4 @@
-// src/App.tsx
+import React from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { LoadingSpinner } from './components/LoadingSpinner';
@@ -8,7 +8,7 @@ import { useTravelersAndExpenses } from './hooks/useTravelersAndExpenses';
 import { AddExpenseForm } from './components/AddExpenseFrom';
 
 const App: React.FC = () => {
-  const { travelers, expenseList, loading, removeTraveler } =
+  const { travelers, expenseList, loading, addTraveler, removeTraveler } =
     useTravelersAndExpenses();
 
   return (
@@ -20,7 +20,11 @@ const App: React.FC = () => {
         <LoadingSpinner />
       ) : (
         <>
-          <TravelerList travelers={travelers} onRemove={removeTraveler} />
+          <TravelerList
+            travelers={travelers}
+            onAdd={addTraveler}
+            onRemove={removeTraveler}
+          />
           <AddExpenseForm travelers={travelers} />
           <ExpenseDashboard expenseList={expenseList} />
         </>
