@@ -1,6 +1,12 @@
 // src/hooks/useTravelersAndExpenses.ts
 import { useState, useEffect } from 'react';
-import { onSnapshot, collection, doc, deleteDoc, addDoc } from 'firebase/firestore';
+import {
+  onSnapshot,
+  collection,
+  doc,
+  deleteDoc,
+  addDoc,
+} from 'firebase/firestore';
 import { db } from '../firebase/firebaseConfig';
 import { Traveler, Expense } from '../types';
 import { toast } from 'react-toastify';
@@ -11,16 +17,26 @@ export const useTravelersAndExpenses = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const unsubscribeTravelers = onSnapshot(collection(db, 'travelers'), (snapshot) => {
-      const travelersData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Traveler));
-      setTravelers(travelersData);
-    });
+    const unsubscribeTravelers = onSnapshot(
+      collection(db, 'travelers'),
+      (snapshot) => {
+        const travelersData = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Traveler)
+        );
+        setTravelers(travelersData);
+      }
+    );
 
-    const unsubscribeExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
-      const expensesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Expense));
-      setExpenseList(expensesData);
-      setLoading(false);
-    });
+    const unsubscribeExpenses = onSnapshot(
+      collection(db, 'expenses'),
+      (snapshot) => {
+        const expensesData = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as Expense)
+        );
+        setExpenseList(expensesData);
+        setLoading(false);
+      }
+    );
 
     return () => {
       unsubscribeTravelers();

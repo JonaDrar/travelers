@@ -9,7 +9,9 @@ interface AddExpenseFormProps {
   travelers: Traveler[];
 }
 
-export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({ travelers }) => {
+export const AddExpenseForm: React.FC<AddExpenseFormProps> = ({
+  travelers,
+}) => {
   const [type, setType] = useState('');
   const [amount, setAmount] = useState<number>(0);
 
