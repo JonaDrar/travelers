@@ -105,7 +105,7 @@ function App() {
     }));
   };
 
-  // Guardar el gasto en Firebase
+  // Guardar el gasto en Firebase y limpiar el formulario
   const saveToFirebase = async (travelerId: string) => {
     if (expenses.type.trim() === '' || expenses.amount <= 0) {
       toast.error('El tipo de gasto no puede estar vacío y el monto debe ser mayor a 0');
@@ -124,6 +124,9 @@ function App() {
     try {
       await addDoc(collection(db, 'expenses'), expenseData);
       toast.success('Gasto guardado en Firebase');
+      
+      // Limpiar el formulario de gastos después de guardarlo
+      setExpenses({ type: '', amount: 0 });
     } catch (error) {
       if (error instanceof Error) {
         toast.error(`Error al guardar en Firebase: ${error.message}`);
