@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { db } from './firebase';
-import { addDoc, collection, getDocs, deleteDoc, doc, query, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 
 // Definir tipos para datos de gastos y viajeros
 interface Expense {
@@ -28,28 +28,24 @@ function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [operationLoading, setOperationLoading] = useState<boolean>(false);
 
-  // Cargar viajeros y gastos desde Firebase al inicio
+  // Cargar datos de viajeros y gastos en tiempo real desde Firebase al inicio
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const travelerCollection = collection(db, 'travelers');
-        const travelerSnapshot = await getDocs(travelerCollection);
-        const travelersData = travelerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Traveler));
-        setTravelers(travelersData);
+    const unsubscribeTravelers = onSnapshot(collection(db, 'travelers'), (snapshot) => {
+      const travelersData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Traveler));
+      setTravelers(travelersData);
+    });
 
-        const expenseCollection = collection(db, 'expenses');
-        const expenseSnapshot = await getDocs(expenseCollection);
-        const expensesData = expenseSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-        setExpenseList(expensesData);
-      } catch (error) {
-        toast.error('Error al cargar datos de Firebase');
-      } finally {
-        setLoading(false);
-      }
+    const unsubscribeExpenses = onSnapshot(collection(db, 'expenses'), (snapshot) => {
+      const expensesData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Expense));
+      setExpenseList(expensesData);
+      setLoading(false);
+    });
+
+    // Limpiar las suscripciones al desmontar el componente
+    return () => {
+      unsubscribeTravelers();
+      unsubscribeExpenses();
     };
-
-    fetchData();
   }, []);
 
   // Añadir un nuevo viajero y guardarlo en Firebase
@@ -62,8 +58,7 @@ function App() {
     setOperationLoading(true);
     const newTraveler = { name: travelerName };
     try {
-      const docRef = await addDoc(collection(db, 'travelers'), newTraveler);
-      setTravelers([...travelers, { id: docRef.id, ...newTraveler }]);
+      await addDoc(collection(db, 'travelers'), newTraveler);
       setTravelerName('');
       toast.success(`Viajero ${travelerName} añadido`);
     } catch (error) {
@@ -88,9 +83,6 @@ function App() {
       const batchDeletes = expenseSnapshot.docs.map(expenseDoc => deleteDoc(doc(db, 'expenses', expenseDoc.id)));
 
       await Promise.all(batchDeletes);
-
-      setTravelers(travelers.filter((traveler) => traveler.id !== travelerId));
-      setExpenseList(expenseList.filter((expense) => expense.travelerId !== travelerId));
 
       toast.info('Viajero y gastos asociados eliminados');
     } catch (error) {
@@ -130,8 +122,7 @@ function App() {
     };
 
     try {
-      const docRef = await addDoc(collection(db, 'expenses'), expenseData);
-      setExpenseList([...expenseList, { id: docRef.id, ...expenseData }]);
+      await addDoc(collection(db, 'expenses'), expenseData);
       toast.success('Gasto guardado en Firebase');
     } catch (error) {
       if (error instanceof Error) {
@@ -168,6 +159,12 @@ function App() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <h1 className="text-3xl font-bold mb-4">Calculadora de Gastos de Viaje</h1>
       
+      {/* Total de gastos */}
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl mb-6">
+        <h2 className="text-2xl font-semibold mb-4">Gasto Total</h2>
+        <p className="text-lg">Total Gastado: ${getTotalExpenses()}</p>
+      </div>
+
       {/* Sección de viajeros */}
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md mb-6">
         <h2 className="text-2xl font-semibold mb-4">Viajeros</h2>
@@ -245,7 +242,7 @@ function App() {
       </div>
 
       {/* Dashboard de gastos */}
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl mb-6">
+      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
         <h2 className="text-2xl font-semibold mb-4">Dashboard de Gastos</h2>
         <ul>
           {expenseList.map((expense) => (
@@ -265,12 +262,6 @@ function App() {
             </li>
           ))}
         </ul>
-      </div>
-
-      {/* Total de gastos */}
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
-        <h2 className="text-2xl font-semibold mb-4">Gasto Total</h2>
-        <p className="text-lg">Total Gastado: ${getTotalExpenses()}</p>
       </div>
 
       <ToastContainer />
