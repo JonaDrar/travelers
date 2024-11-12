@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Traveler } from '../types';
+import { Traveler, Expense } from '../types';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface TravelerListProps {
   travelers: Traveler[];
+  expenseList: Expense[];
   onRemove: (travelerId: string) => void;
   onAdd: (name: string) => void;
 }
 
-export const TravelerList: React.FC<TravelerListProps> = ({ travelers, onRemove, onAdd }) => {
+export const TravelerList: React.FC<TravelerListProps> = ({ travelers, expenseList, onRemove, onAdd }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTraveler, setSelectedTraveler] = useState<string | null>(null);
   const [newTravelerName, setNewTravelerName] = useState('');
@@ -61,22 +62,29 @@ export const TravelerList: React.FC<TravelerListProps> = ({ travelers, onRemove,
         </button>
       </div>
 
-      {/* Lista de viajeros */}
+      {/* Lista de viajeros con el total de gastos de cada uno */}
       <ul>
-        {travelers.map((traveler) => (
-          <li key={traveler.id} className="flex justify-between items-center mb-2">
-            <span>{traveler.name}</span>
-            <button
-              onClick={() => handleDeleteClick(traveler.id)}
-              className="text-red-500 hover:underline"
-            >
-              Eliminar
-            </button>
-          </li>
-        ))}
+        {travelers.map((traveler) => {
+          const travelerExpenses = expenseList.filter((expense) => expense.travelerId === traveler.id);
+          const travelerTotal = travelerExpenses.reduce((total, expense) => total + expense.amount, 0);
+
+          return (
+            <li key={traveler.id} className="flex justify-between items-center mb-2">
+              <div>
+                <span>{traveler.name}</span>
+                <span className="text-gray-500 text-sm ml-2">Total: ${travelerTotal}</span>
+              </div>
+              <button
+                onClick={() => handleDeleteClick(traveler.id)}
+                className="text-red-500 hover:underline"
+              >
+                Eliminar
+              </button>
+            </li>
+          );
+        })}
       </ul>
 
-      {/* Modal de confirmación para eliminar viajero */}
       <ConfirmationModal
         isOpen={isModalOpen}
         onConfirm={handleConfirmDelete}
